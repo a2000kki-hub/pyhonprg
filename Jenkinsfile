@@ -1,6 +1,11 @@
 pipeline {
     agent any
     
+    options {
+        // Prevent Jenkins from doing an automatic checkout before the stages start
+        skipDefaultCheckout()
+    }
+    
     environment {
         DOCKER_REGISTRY = "dh2uhf2i"
         IMAGE_NAME      = "myapp"
@@ -10,6 +15,7 @@ pipeline {
     stages {
         stage('Checkout Code') {
             steps {
+                // Now it's safe to clean the workspace because code hasn't been fetched yet
                 cleanWs()
                 checkout scm
             }
@@ -19,7 +25,8 @@ pipeline {
             steps {
                 echo 'Installing testing dependencies and running flake8 linting...'
                 bat 'pip install flake8'
-                bat 'flake8 app.py --count --select=E9,F63,F7,F82 --show-source --statistics'
+                // Replaced app.py with '.' to scan the workspace and prevent FileNotFoundError
+                bat 'flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics'
             }
         }
         
@@ -47,7 +54,6 @@ pipeline {
         stage('Deploy to Kubernetes') {
             steps {
                 echo 'Applying secret and manifest updates securely to Kubernetes cluster...'
-                // Ensure you upload your cluster's kubeconfig file as a secret file credential named 'kubeconfig-secret'
                 withCredentials([file(credentialsId: 'kubeconfig-secret', variable: 'KUBECONFIG')]) {
                     bat "kubectl --kubeconfig=%KUBECONFIG% apply -f secret.yaml"
                     bat "kubectl --kubeconfig=%KUBECONFIG% apply -f deployment.yaml"
