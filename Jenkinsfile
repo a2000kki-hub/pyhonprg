@@ -40,9 +40,14 @@ pipeline {
         
         stage('Push to Registry') {
             steps {
-                echo 'Logging into Docker Hub and pushing image...'
+                echo 'Logging into Docker Hub securely and pushing image...'
                 withCredentials([usernamePassword(credentialsId: 'dh2uhf2i', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    bat "echo %PASS% | docker login -u %USER% --password-stdin"
+                    // Safe method for Windows agents: Write token to a temp file, feed to stdin, and immediately delete it
+                    bat """
+                        echo %PASS% > docker_pass.tmp
+                        docker login -u %USER% --password-stdin < docker_pass.tmp
+                        del docker_pass.tmp
+                    """
                     bat "docker tag ${IMAGE_NAME}:${BUILD_TAG} ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}"
                     bat "docker tag ${IMAGE_NAME}:${BUILD_TAG} ${DOCKER_REGISTRY}/${IMAGE_NAME}:latest"
                     bat "docker push ${DOCKER_REGISTRY}/${IMAGE_NAME}:${BUILD_TAG}"
